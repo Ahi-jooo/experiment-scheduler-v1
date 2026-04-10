@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lab Scheduler | 生命科学実験スケジューラー</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <!-- FullCalendar JS -->
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-left">
+      <span class="material-icons-round logo-icon">science</span>
+      <h1>Lab Scheduler</h1>
+    </div>
+    <div class="header-right">
+      <button id="openSettingsBtn" class="btn btn-outline" style="border:none; border-radius: 50%;"><span class="material-icons-round">settings</span></button>
+      <button id="googleOAuthLoginBtn" class="btn btn-outline" style="display: none;">
+        <span class="material-icons-round">login</span> カレンダー連携
+      </button>
+      <div id="userInfo" class="user-info" style="display: none; align-items:center; gap:8px;">
+        <img id="userAvatar" src="" alt="User" class="avatar" style="width:30px; border-radius:50%;">
+        <span id="userName" style="font-size:0.9rem;"></span>
+        <button id="googleLogoutBtn" class="btn btn-icon"><span class="material-icons-round">logout</span></button>
+      </div>
+      <button id="syncAllToCalendarBtn" class="btn btn-primary" style="display:none;"><span class="material-icons-round">sync</span> 同期実行</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- Sidebar: Experiment Builder -->
+    <aside class="sidebar">
+      
+      <section class="panel">
+        <div class="panel-header">
+          <h2><span class="material-icons-round">add_task</span> <span data-i18n="new_schedule">新規スケジュールの作成</span></h2>
+        </div>
+        <div class="panel-content">
+          <div class="form-group">
+            <label for="experimentName" data-i18n="experiment_name">実験名</label>
+            <input type="text" id="experimentName" data-i18n="experiment_name_ph" placeholder="例: Western blot">
+          </div>
+          <div class="form-group-row">
+            <div class="form-group">
+              <label for="startDate" data-i18n="start_date">開始日</label>
+              <input type="date" id="startDate">
+            </div>
+            <div class="form-group">
+              <label for="startTime" data-i18n="start_time">開始時刻</label>
+              <input type="time" id="startTime" value="10:00" step="600">
+            </div>
+          </div>
+          <div class="form-group mt-3">
+            <label for="experimentColor" data-i18n="schedule_color">予定カラー</label>
+            <select id="experimentColor">
+              <option value="#000000" data-i18n="color_black">黒</option>
+              <option value="#333333" data-i18n="color_charcoal">濃炭</option>
+              <option value="#808080" data-i18n="color_gray">グレー</option>
+              <option value="#C0C0C0" data-i18n="color_silver">シルバー</option>
+              <option value="#FFFFFF" data-i18n="color_white">白</option>
+              <option value="#FFB6C1" data-i18n="color_pink" selected>ライトピンク</option>
+              <option value="#FDD9B5" data-i18n="color_peach">ピーチ</option>
+              <option value="#FFFACD" data-i18n="color_lemon">レモン</option>
+              <option value="#ADD8E6" data-i18n="color_blue">ライトブルー</option>
+              <option value="#C3E8CB" data-i18n="color_green">ペールグリーン</option>
+            </select>
+          </div>
+          <button id="saveTemplateBtn" class="btn btn-secondary btn-full mt-3"><span class="material-icons-round">save</span> <span data-i18n="save_template">現在のステップをテンプレート保存</span></button>
+          
+          <div class="form-group mt-3">
+            <label data-i18n="load_template">テンプレート読込</label>
+            <div style="display:flex; gap:8px;">
+              <select id="templateSelect" style="flex:1;">
+                <option value="" data-i18n="scratch_template">-- スクラッチから作成 --</option>
+              </select>
+              <button id="deleteTemplateBtn" class="btn btn-outline" style="border-color:#dc3545; color:#dc3545; padding: 0 10px;" title="テンプレートを削除" disabled><span class="material-icons-round">delete</span></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel steps-panel">
+        <div class="panel-header">
+          <h2><span class="material-icons-round">format_list_numbered</span> <span data-i18n="process_steps">工程ステップ</span></h2>
+          <button id="addStepBtn" class="btn btn-outline btn-sm"><span class="material-icons-round">add</span> <span data-i18n="add_btn">追加</span></button>
+        </div>
+        <div class="panel-content">
+          <ul id="stepList" class="step-list">
+            <!-- Draggable steps will go here -->
+          </ul>
+        </div>
+        <div style="padding: 15px; border-top: 1px solid var(--border);">
+          <button id="addExperimentoToCalendarBtn" class="btn btn-primary btn-full"><span class="material-icons-round">event_available</span> <span data-i18n="add_to_calendar">カレンダーに登録</span></button>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- Main Content: Full Calendar -->
+    <section class="calendar-container">
+       <div id="calendar" style="height: 100%; width: 100%; background: var(--surface); padding: 15px; border-radius: 8px; box-shadow: var(--shadow);"></div>
+    </section>
+  </main>
+
+  <!-- Modals -->
+  <!-- Settings Modal (Client ID & Unavailability) -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content" style="width: 500px;">
+      <div class="modal-header">
+        <h3 data-i18n="settings_title">システム設定</h3>
+        <button class="close-btn" id="closeSettingsModal"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+
+        <div class="usage-guide" style="background: var(--action-color); border: 1px solid var(--action-border); border-radius: 6px; padding: 15px; margin-bottom: 20px;">
+          <h4 style="margin-bottom: 10px; color: var(--action-text);" data-i18n="guide_title">💡 使い方ガイド</h4>
+          <ul style="padding-left: 20px; font-size: 0.85rem; color: var(--text-main); line-height: 1.6;">
+            <li data-i18n="guide_t1"><b>スケジュールの作成</b>：左パネルで実験の各工程の所要時間（時間）を設定し、「カレンダーに登録」を押します。</li>
+            <li data-i18n="guide_t2"><b>カレンダーへの直接登録</b>：カレンダーの空き枠（日時）を直接クリックすると、現在の実験予定を一発で登録できます。</li>
+            <li data-i18n="guide_t3"><b>時間の再調整 (ドラッグ)</b>：枠の下端をドラッグで伸縮させると所要時間が変わり、後続ステップも自動で玉突き式に再計算されます。</li>
+            <li data-i18n="guide_t4"><b>カレンダーへの共有</b>：右上の「iCal出力」から全ての予定を.ics形式でダウンロードし、ファイルをお使いのGoogleカレンダーやOutlook等にインポート（取り込み）することで予定の共有が可能です。</li>
+            <li data-i18n="guide_t5"><b>実験不可時間のスキップ</b>：本設定画面下部の「実験不可時間の管理」で会議・土日などをブロックしておくと、玉突き計算時にその時間を自動で避けて配置されます。</li>
+          </ul>
+        </div>
+
+        <h4 style="margin-bottom: 10px;" data-i18n="language_lbl">言語 (Language)</h4>
+        <div class="form-group">
+          <select id="settingLanguage">
+             <option value="ja">日本語</option>
+             <option value="en">English</option>
+          </select>
+        </div>
+        
+        <h4 style="margin-top: 20px; margin-bottom: 10px;" data-i18n="oauth_section">Google カレンダー連携 (OAuth)</h4>
+        <div class="form-group">
+          <label data-i18n="oauth_client_id">OAuth クライアント ID (xxxx.apps.googleusercontent.com)</label>
+          <input type="text" id="settingClientId" data-i18n="oauth_client_id_ph" placeholder="IDを入力してください">
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;" data-i18n="oauth_desc">実際のカレンダーに連携する場合はGoogle Cloudで取得したIDをここに入力して保存します。</p>
+        </div>
+
+        <h4 style="margin-top: 20px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
+          <span data-i18n="unavailable_title">実験不可時間の管理</span>
+          <button id="addUnavailableBtn" class="btn btn-outline btn-sm"><span class="material-icons-round">add</span></button>
+        </h4>
+        <div class="panel-content" id="unavailableList" style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; max-height:150px; overflow-y:auto; padding:10px;">
+          <!-- Unavailable items will be here -->
+        </div>
+
+        <button id="saveSettingsBtn" class="btn btn-primary btn-full" style="margin-top:20px;" data-i18n="save_settings">設定を保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unavailable Modal (Secondary) -->
+  <div id="unavailableModal" class="modal" style="z-index: 200;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 data-i18n="unavail_add_title">不可時間の追加</h3>
+        <button class="close-btn" id="closeUnavailableModal"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label data-i18n="type_lbl">種類</label>
+          <div class="radio-group">
+            <label><input type="radio" name="unavailType" value="weekly" checked> <span data-i18n="weekly_lbl">毎週（曜日固定）</span></label>
+            <label><input type="radio" name="unavailType" value="single"> <span data-i18n="single_lbl">単発日時</span></label>
+          </div>
+        </div>
+        <div class="form-group" id="unavailDaySelector">
+          <label data-i18n="day_lbl">曜日</label>
+          <select id="unavailDay">
+            <option value="1" data-i18n="day_1">月曜日</option>
+            <option value="2" data-i18n="day_2">火曜日</option>
+            <option value="3" data-i18n="day_3">水曜日</option>
+            <option value="4" data-i18n="day_4">木曜日</option>
+            <option value="5" data-i18n="day_5">金曜日</option>
+            <option value="6" data-i18n="day_6">土曜日</option>
+            <option value="0" data-i18n="day_0">日曜日</option>
+          </select>
+        </div>
+        <div class="form-group" id="unavailDateSelector" style="display: none;">
+          <label data-i18n="date_lbl">日付</label>
+          <input type="date" id="unavailDate">
+        </div>
+        <div class="form-group-row">
+          <div class="form-group">
+            <label data-i18n="start_time">開始時刻</label>
+            <input type="time" id="unavailStart" value="13:00">
+          </div>
+          <div class="form-group">
+            <label data-i18n="end_time">終了時刻</label>
+            <input type="time" id="unavailEnd" value="15:00">
+          </div>
+        </div>
+        <button id="saveUnavailableBtn" class="btn btn-primary btn-full" data-i18n="add_action">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event Info Modal -->
+  <div id="eventInfoModal" class="modal" style="z-index: 150;">
+    <div class="modal-content" style="width: 350px;">
+      <div class="modal-header">
+        <h3 id="eventInfoTitle">予定詳細</h3>
+        <button class="close-btn" id="closeEventInfoModal"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 8px;"><strong data-i18n="event_time_lbl">時刻:</strong> <span id="eventInfoTime"></span></p>
+        <p style="margin-bottom: 12px;"><strong data-i18n="event_type_lbl">種類:</strong> <span id="eventInfoType"></span> (<span id="eventInfoDuration"></span> min)</p>
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label><strong data-i18n="display_color_lbl">表示カラー:</strong></label>
+          <select id="eventInfoColor" style="width: 100%;">
+            <option value="#000000" data-i18n="color_black">黒</option>
+            <option value="#333333" data-i18n="color_charcoal">濃炭</option>
+            <option value="#808080" data-i18n="color_gray">グレー</option>
+            <option value="#C0C0C0" data-i18n="color_silver">シルバー</option>
+            <option value="#FFFFFF" data-i18n="color_white">白</option>
+            <option value="#FFB6C1" data-i18n="color_pink">ライトピンク</option>
+            <option value="#FDD9B5" data-i18n="color_peach">ピーチ</option>
+            <option value="#FFFACD" data-i18n="color_lemon">レモン</option>
+            <option value="#ADD8E6" data-i18n="color_blue">ライトブルー</option>
+            <option value="#C3E8CB" data-i18n="color_green">ペールグリーン</option>
+          </select>
+        </div>
+        
+        <button id="deleteExperimentBtn" class="btn btn-outline btn-full" style="color:var(--text-muted); border-color:#dc3545;"><span class="material-icons-round">delete</span> <span data-i18n="delete_exp_btn">この実験スケジュール全体を削除</span></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/scheduler.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/calendarView.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
