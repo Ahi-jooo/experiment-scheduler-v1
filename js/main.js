@@ -1,5 +1,10 @@
-js/state.js
-js/scheduler.js
-js/calendar.js
-js/calendarView.js
-js/i18n.js
+document.addEventListener('DOMContentLoaded', () => {
+  loadState();
+
+  if (typeof applyTranslationsToDOM === 'function') {
+    applyTranslationsToDOM();
+  }
+
+  initUI();
+  initGoogleApi();
+});
